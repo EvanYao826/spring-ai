@@ -99,7 +99,9 @@ public class DeepSeekStreamFunctionCallingHelper {
 				throw new IllegalStateException("Currently only one tool call is supported per message!");
 			}
 			var currentToolCall = current.toolCalls().iterator().next();
-			if (StringUtils.hasText(currentToolCall.id())) {
+			boolean isSameToolCall = lastPreviousTooCall != null && currentToolCall.index() != null
+					&& currentToolCall.index().equals(lastPreviousTooCall.index());
+			if (StringUtils.hasText(currentToolCall.id()) && !isSameToolCall) {
 				if (lastPreviousTooCall != null) {
 					toolCalls.add(lastPreviousTooCall);
 				}
@@ -124,7 +126,8 @@ public class DeepSeekStreamFunctionCallingHelper {
 		String id = (StringUtils.hasText(current.id()) ? current.id() : previous.id());
 		String type = (current.type() != null ? current.type() : previous.type());
 		ChatCompletionFunction function = merge(previous.function(), current.function());
-		return new ToolCall(id, type, function);
+		Integer index = (current.index() != null ? current.index() : previous.index());
+		return new ToolCall(index, id, type, function);
 	}
 
 	private ChatCompletionFunction merge(@Nullable ChatCompletionFunction previous, ChatCompletionFunction current) {

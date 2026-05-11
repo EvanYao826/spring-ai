@@ -208,6 +208,47 @@ class DeepSeekStreamFunctionCallingHelperTest {
 	}
 
 	@Test
+	void mergeShouldMergeToolCallArgumentsWhenSameIdInEveryChunk() {
+		// Simulate vLLM streaming: same id and index in every chunk
+		// Chunk 1: tool call initialization with name and empty arguments
+		ToolCall toolCall1 = new ToolCall(0, "call_123", "function",
+				new ChatCompletionFunction("get_weather", ""));
+		ChatCompletionMessage msg1 = new ChatCompletionMessage(null, Role.ASSISTANT, null, null,
+				List.of(toolCall1));
+
+		// Chunk 2: same id, same index, partial arguments
+		ToolCall toolCall2 = new ToolCall(0, "call_123", "function",
+				new ChatCompletionFunction(null, "{\"city\": \""));
+		ChatCompletionMessage msg2 = new ChatCompletionMessage(null, Role.ASSISTANT, null, null,
+				List.of(toolCall2));
+
+		// Chunk 3: same id, same index, rest of arguments
+		ToolCall toolCall3 = new ToolCall(0, "call_123", "function",
+				new ChatCompletionFunction(null, "Beijing\"}"));
+		ChatCompletionMessage msg3 = new ChatCompletionMessage(null, Role.ASSISTANT, null, null,
+				List.of(toolCall3));
+
+		ChatCompletionChunk chunk1 = new ChatCompletionChunk("id1",
+				List.of(new ChatCompletionChunk.ChunkChoice(null, 0, msg1, null)), 1L, "model", null, null, null, null);
+		ChatCompletionChunk chunk2 = new ChatCompletionChunk("id1",
+				List.of(new ChatCompletionChunk.ChunkChoice(null, 0, msg2, null)), 1L, "model", null, null, null, null);
+		ChatCompletionChunk chunk3 = new ChatCompletionChunk("id1",
+				List.of(new ChatCompletionChunk.ChunkChoice(null, 0, msg3, null)), 1L, "model", null, null, null, null);
+
+		// When
+		ChatCompletionChunk merged1 = this.helper.merge(null, chunk1);
+		ChatCompletionChunk merged2 = this.helper.merge(merged1, chunk2);
+		ChatCompletionChunk merged3 = this.helper.merge(merged2, chunk3);
+
+		// Then: arguments should be merged even though each chunk has the same id
+		ToolCall mergedToolCall = merged3.choices().get(0).delta().toolCalls().get(0);
+		assertThat(mergedToolCall.id()).isEqualTo("call_123");
+		assertThat(mergedToolCall.index()).isEqualTo(0);
+		assertThat(mergedToolCall.function().name()).isEqualTo("get_weather");
+		assertThat(mergedToolCall.function().arguments()).isEqualTo("{\"city\": \"Beijing\"}");
+	}
+
+	@Test
 	void mergeWhenCurrentToolCallsIsEmptyListShouldNotThrowException() {
 		// Given
 		ToolCall toolCall = new ToolCall("call_1", "function", new ChatCompletionFunction("func1", "{}"));

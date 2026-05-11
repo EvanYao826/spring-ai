@@ -131,7 +131,9 @@ public class MistralAiStreamFunctionCallingHelper {
 				throw new IllegalStateException("Currently only one tool call is supported per message!");
 			}
 			var currentToolCall = current.toolCalls().iterator().next();
-			if (currentToolCall.id() != null) {
+			boolean isSameToolCall = lastPreviousTooCall != null && currentToolCall.index() != null
+					&& currentToolCall.index().equals(lastPreviousTooCall.index());
+			if (currentToolCall.id() != null && !isSameToolCall) {
 				if (lastPreviousTooCall != null) {
 					toolCalls.add(lastPreviousTooCall);
 				}
