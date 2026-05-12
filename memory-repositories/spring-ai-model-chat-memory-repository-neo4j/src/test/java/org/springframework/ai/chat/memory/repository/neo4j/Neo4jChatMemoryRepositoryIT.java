@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -406,6 +407,33 @@ class Neo4jChatMemoryRepositoryIT {
 		assertThat(retrievedEmptyMetadataMsg.getMetadata()).containsEntry("messageType", MessageType.USER);
 		assertThat(retrievedEmptyMetadataMsg.getMetadata().keySet()).hasSize(1); // Only
 																					// messageType
+	}
+
+	@Test
+	void saveAssistantMessageWithOptionalMetadata() {
+		// Simulates the scenario where the OpenAI Java SDK returns Optional-typed
+		// fields (e.g. refusal, toolCalls) in AssistantMessage metadata.
+		// Without the unwrapOptionals() fix, Neo4j's Values.value() cannot convert
+		// java.util.Optional and throws a ClientException.
+		var conversationId = UUID.randomUUID().toString();
+
+		Map<String, Object> metadataWithOptionals = new java.util.HashMap<>();
+		metadataWithOptionals.put("refusal", Optional.empty());
+		metadataWithOptionals.put("toolCalls", Optional.of("some-tool-call"));
+		metadataWithOptionals.put("regularKey", "regularValue");
+
+		AssistantMessage assistantMessage = AssistantMessage.builder()
+			.content("Response with Optional metadata")
+			.properties(metadataWithOptionals)
+			.build();
+
+		this.chatMemoryRepository.saveAll(conversationId, List.of(assistantMessage));
+		List<Message> retrievedMessages = this.chatMemoryRepository.findByConversationId(conversationId);
+
+		assertThat(retrievedMessages).hasSize(1);
+		Message retrieved = retrievedMessages.get(0);
+		assertThat(retrieved.getText()).isEqualTo("Response with Optional metadata");
+		assertThat(retrieved.getMetadata()).containsEntry("regularKey", "regularValue");
 	}
 
 	private Message createMessageByType(String content, MessageType messageType) {
