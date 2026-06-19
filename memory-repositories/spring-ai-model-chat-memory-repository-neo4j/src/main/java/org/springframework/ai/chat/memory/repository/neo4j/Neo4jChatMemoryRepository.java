@@ -39,6 +39,7 @@ import org.springframework.ai.chat.messages.ToolResponseMessage.ToolResponse;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.content.Media;
 import org.springframework.ai.content.MediaContent;
+import org.springframework.ai.util.MapUtils;
 import org.springframework.util.MimeType;
 
 /**
@@ -264,7 +265,7 @@ public final class Neo4jChatMemoryRepository implements ChatMemoryRepository {
 					""");
 			Map<String, Object> metadataCopy = new HashMap<>(message.getMetadata());
 			metadataCopy.remove("messageType");
-			queryParameters.put("metadata", unwrapOptionals(metadataCopy));
+			queryParameters.put("metadata", MapUtils.unwrapOptionals(metadataCopy));
 			queryParameters.put("metadataLabel", this.config.getMetadataLabel());
 		}
 		if (message instanceof AssistantMessage assistantMessage) {
@@ -320,19 +321,6 @@ public final class Neo4jChatMemoryRepository implements ChatMemoryRepository {
 		t.run(statementBuilder.toString(), queryParameters);
 	}
 
-	private Map<String, Object> unwrapOptionals(Map<String, Object> map) {
-		Map<String, Object> result = new HashMap<>(map.size());
-		for (Map.Entry<String, Object> entry : map.entrySet()) {
-			Object value = entry.getValue();
-			if (value instanceof Optional<?> optional) {
-				result.put(entry.getKey(), optional.orElse(null));
-			}
-			else {
-				result.put(entry.getKey(), value);
-			}
-		}
-		return result;
-	}
 
 	private List<Map<String, Object>> convertMediaToMap(List<Media> media) {
 		List<Map<String, Object>> mediaMaps = new ArrayList<>();
